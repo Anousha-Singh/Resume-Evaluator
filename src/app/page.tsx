@@ -10,8 +10,10 @@ interface EvaluationResult {
   skill_match: Record<string, string>;
   experience_match: number;
   education_match: number;
+  certification: string[];
   detailed_analysis: string;
   fit_assessment: Record<string, string>;
+  social_media_links: Record<string, string>;
 }
 
 const ResumeEvaluator = () => {
@@ -34,42 +36,46 @@ const ResumeEvaluator = () => {
     }
   };
 
-  const handleEvaluate = async () => {
-    if (!jobDescription.trim()) {
-      setError('Please enter a job description');
-      return;
+const handleEvaluate = async () => {
+  if (!jobDescription.trim()) {
+    setError('Please enter a job description');
+    return;
+  }
+
+  if (!resumeFile) {
+    setError('Please upload a resume PDF file');
+    return;
+  }
+
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    const formData = new FormData();
+    formData.append('job_description', jobDescription);
+    formData.append('resume_file', resumeFile);
+
+    const response = await fetch('http://localhost:8000/evaluate-resume', {
+      method: 'POST',
+      body: formData,
+    });
+
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      const errorMsg = errorData?.detail || `HTTP error! status: ${response.status}`;
+      throw new Error(errorMsg);
     }
 
-    if (!resumeFile) {
-      setError('Please upload a resume PDF file');
-      return;
-    }
+    const result: EvaluationResult = await response.json();
+    setEvaluation(result);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'An error occurred during evaluation');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('job_description', jobDescription);
-      formData.append('resume_file', resumeFile);
-
-      const response = await fetch('http://localhost:8000/evaluate-resume', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: EvaluationResult = await response.json();
-      setEvaluation(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during evaluation');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600';
@@ -269,6 +275,22 @@ const ResumeEvaluator = () => {
               </ul>
             </div>
 
+            {/* Certifications */}
+            {evaluation.certification.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold text-purple-700 mb-3">Certifications</h3>
+                <ul className="space-y-2">
+                  {evaluation.certification.map((cert, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="text-purple-500 mr-2">•</span>
+                      <span className="text-gray-700">{cert}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+
             {/* Skill Match */}
             <div>
               <h3 className="text-xl font-semibold text-gray-900 mb-3">Skill Match Analysis</h3>
@@ -283,6 +305,31 @@ const ResumeEvaluator = () => {
                 </div>
               </div>
             </div>
+
+            {/* Social Media Links */}
+            {Object.keys(evaluation.social_media_links).length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Social Media Links</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <ul className="space-y-2">
+                    {Object.entries(evaluation.social_media_links).map(([platform, link]) => (
+                      <li key={platform} className="flex items-center">
+                        <span className="font-medium text-gray-700 mr-2">{platform}:</span>
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline break-all"
+                        >
+                          {link}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
       </div>
